@@ -1,6 +1,6 @@
 /* Increase the default width of the page. */
 .main {
-    max-width: calc(max(80%, var(--main-width)));
+    max-width: calc(max(50%, var(--main-width)));
 }
 /* Increase less for the home page.
 This will eventually replace the following two rules. But for now
