@@ -12,7 +12,7 @@ description: "Deep dive into Procedural Tree Generation based on self-organizing
 summary: "Deep dive into Procedural Tree Generation based on self-organizing trees"
 ---
 
-## What is this series about?
+# What is this series about?
 
 This series explores **TreeGen**, a project dedicated to the procedural generation and real-time rendering of trees. It was my bachelor’s thesis, which was developed over the course of a year. The series is divided into two main parts:
 
@@ -24,7 +24,7 @@ You can find the project on [Github](https://github.com/caner-milko/TreeGen) and
 
 This series not only showcases a practical application of procedural generation but also highlights the intricacies and challenges of real-time rendering.
 
-## Introduction to Procedural Tree Generation
+# Introduction to Procedural Tree Generation
 
 Procedural tree generation is essential in games and any type of VFX due to the complexity of manually creating trees with their intricate branching structures. This technique automates the creation process, enabling artists to quickly and efficiently produce a diverse range of trees. It's particularly useful for generating forests, where a large number of unique trees are needed, saving both time and effort.
 
@@ -36,7 +36,7 @@ Procedural tree generation algorithms generally fall into two categories:
 
 For my project, I focused on real-time generation and reproducibility. Consequently, I chose the self-organizing tree model for its ability to produce more realistic and varied results. In the subsequent sections, I will discuss optimizations and techniques for achieving reproducible randomness in the tree generation process.
 
-## Overview of the Algorithm
+# Overview of the Algorithm
 
 A tree is represented as a recursive structure of connected branches. Each branch has a terminal (main) and a lateral bud, where each leaf bud can generate a new branch. This is an iterative algorithm where each iteration is divided into 5 steps, and I added another step to produce offspring trees:
 
@@ -85,7 +85,7 @@ struct TreeNode
 - `light` field is calculated on step 1 as follows: If the node is a bud, then it is calculated as how much light the node receives, if the node is not a bud, then it is the sum of how much light its children receive.
 - Similar to `light`, `vigor` is the growth resource that was distributed to a node from its parent, it is used to determine if a leaf node should produce new branches, or if a bud should shed.
 
-## Step 1: Calculating Light Received
+# Step 1: Calculating Light Received
 
 This step is implemented as a recursive function starting from the root, accumulating light received by leaf buds. While accumulating the light, each node must remember how much light it receives in total from its children or from the environment, since it will be used to determine the distribution of growth resources in [step 2](#step-2-distributing-growth-resources). 
 
@@ -130,7 +130,7 @@ This method assumes a uniform light source that points downwards, and tries to c
 
 Note that both of these methods effects can be calculated in a global space, meaning that they are able to effect other trees, because of this, coupling multiple trees or generating a forest becomes trivial.
 
-## Step 2: Distributing Growth Resources
+# Step 2: Distributing Growth Resources
 
 This is the almost the reverse of the first step, but the tree might decide to distribute the received light favoring the main childs or lateral childs, this is controlled by the apical control($\lambda$) parameter. The received light is multiplied by a parameter called `vigorMultiplier`, which is a parameter basically controlling how much trees grow. 
 
@@ -199,7 +199,7 @@ As you can see, apical control direclty effects the shape of the tree, lower api
 
 {{</rawhtml>}}
 
-## Step 3: Growing New Branches
+# Step 3: Growing New Branches
 
 In this step, new branches are generated from each leaf bud based on the amount of vigor and the direction vectors. The direction of new branches is influenced by the optimal direction and a tropism vector, simulating environmental effects like gravity or wind.
 
@@ -294,7 +294,7 @@ The `randomPerturbateVector` function is based on this https://stackoverflow.com
 </div>
 {{</rawhtml>}}
 
-## Step 4: Shedding Branches
+# Step 4: Shedding Branches
 
 In this step, the tree undergoes a pruning process to remove branches that are not receiving sufficient resources. This step simulates competition among branches and ensures that outdated branches are removed, resulting in a more realistic and healthy tree structure.
 
@@ -362,7 +362,7 @@ void Tree::shedBranchsRecursive(TreeNode& node)
 }
 ```
 
-## Step 5: Calculating Branch Width
+# Step 5: Calculating Branch Width
 
 Branch width is a crucial aspect of rendering trees, as it influences their appearance and realism. It is dependent on width of trees and calculated as:
 
@@ -392,7 +392,7 @@ uint32 Tree::calculateChildCountRecursive(TreeNode& node)
 
 If a node is shed, its parent should not get smaller, so I keep the max child count of each node and use it if current child count is smaller.
 
-## Generating Leaves
+# Generating Leaves
 
 Generating leaves involves using several parameters to ensure that the leaves are distributed and sized appropriately. This step primarily focuses on distributing leaves based on the characteristics of the branches.
 
@@ -474,7 +474,7 @@ Similar to the lateral bud direction, I use a hash & noise functions to generate
 </div>
 {{</rawhtml>}}
 
-## Step 6: Generating Offspring Trees
+# Step 6: Generating Offspring Trees
 
 This step is not in the original algorithm, but it is rather simple, if a tree has enough vigor and has aged enough, then some new trees are generated close to the tree. This is used to simulate the effect of a tree dropping seeds, and new trees growing around the parent tree, which results in a forest. Also, this makes the trees compete with each other, since stronger trees will survive and produce offspring trees while weaker trees will die(from shedding). This can be also extended into a breeding/mutation system, where offspring trees have a chance to mutate, resulting in different trees, and evolution of the forest, though I did not implement this feature. 
 
@@ -489,7 +489,7 @@ New tree count & max distance is calculated based on $log(vigor_{root})$.
 </div>
 {{</rawhtml>}}
 
-## Optimizations & Benchmarking
+# Optimizations & Benchmarking
 
 Profiling revealed that the majority of computation time was spent on adding and removing shadows in the shadow map. Here’s a summary of the key optimizations:
 
@@ -511,7 +511,7 @@ The following table summarizes the performance benchmarks of the final implement
 |  Two Trees  |   $3,497$  | $8.46ms$ |  $1.56ms$  |  $0.07ms$ |   $5.37ms$   |  $1.33ms$  |
 |    Forest   |  $237,551$ | $1402ms$ | $349.26ms$ | $14.88ms$ |   $722.8ms$  |  $377.2ms$ |
 
-## Conclusion
+# Conclusion
 
 This post was about the self-organizing tree algorithm, and how I implemented it in my project TreeGen. This algorithm shows promise for generating various organic structures, and I look forward to exploring its potential further. In the next post, I'll discuss the tree rendering techniques used in TreeGen. Feel free to leave questions or suggestions in the comments below.
 
