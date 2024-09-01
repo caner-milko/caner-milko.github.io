@@ -1,0 +1,84 @@
+baseURL: "https://examplesite.com/"
+title: Caner's Blog
+paginate: 5
+theme: PaperMod
+
+enableRobotsTXT: true
+buildDrafts: false
+buildFuture: false
+buildExpired: false
+
+minify:
+  disableXML: true
+  minifyOutput: true
+
+params:
+  env: production # to enable google analytics, opengraph, twitter-cards and schema.
+  title: Caner Coşkun
+  DateFormat: "2 January 2006"
+  defaultTheme: auto # dark, light
+
+  ShowRssButtonInSectionTermList: true
+  ShowFullTextinRSS: true
+  ShowReadingTime: true
+  ShowShareButtons: false
+  ShowPostNavLinks: true
+  ShowBreadCrumbs: true
+  ShowCodeCopyButtons: false
+  UseHugoToc: true
+  disableScrollToTop: false
+  comments: true
+  hidemeta: false
+  hideauthor: true
+  hideSummary: false
+  showtoc: false
+  tocopen: true
+  math: true
+
+  # home-info mode
+  homeInfoParams:
+    Title: "Caner's Blog"
+    Content: Posts about computer graphics, procedural generation, simulation, and programming stuff.
+
+  socialIcons:
+    - name: Github
+      url: 'https://github.com/caner-milko'
+    - name: Email
+      url: 'mailto:canercoskunn0@gmail.com'
+    - name: linkedin
+      url: 'https://www.linkedin.com/in/caner-coskun/'
+    - name: RSS
+      url: 'index.xml'
+  fuseOpts:
+    isCaseSensitive: false
+    shouldSort: true
+    location: 0
+    distance: 1000
+    threshold: 0.4
+    minMatchCharLength: 0
+    # limit: 10 # refer: https://www.fusejs.io/api/methods.html#search
+    keys: ["title", "permalink", "summary", "content"]
+  author:
+    email: canercoskunn0@gmail.com
+    name: Caner Coşkun
+
+menu:
+  main:
+    - identifier: posts
+      name: Posts
+      url: /posts/
+      weight: 1
+    - identifier: search
+      name: Search
+      url: /search/
+      weight: 2
+    - identifier: tags
+      name: Tags
+      url: /tags/
+      weight: 3
+    
+outputs:
+  home:
+    - HTML
+    - RSS
+    - JSON # necessary for search
