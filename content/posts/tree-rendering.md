@@ -83,7 +83,7 @@ $B'(t) = 2(Bt + A)$
 
 {{<rawhtml>}}
 <div style="display:flex; justify-content: space-evenly; gap: 2.5%; text-align: center; margin:auto; max-width: 100%; max-height: 800px; height=800px">
-<iframe src="https://www.desmos.com/calculator/jwcyvske4z?embed" width="100%" height="800px" style="border: 3px solid #888888" frameborder=0></iframe>
+<iframe src="https://www.desmos.com/calculator/hble8ptwmb?embed" width="100%" height="800px" style="border: 3px solid #888888" frameborder=0></iframe>
 </div>
 {{</rawhtml>}}
 
@@ -335,9 +335,9 @@ void Branch::CalculateUVOffsets(float startLength, const vec3& lastPlaneNormal, 
 }
 ```
 
-Calculating Y offset is rather simple, it is simply the length of the curve sequence so far.
+Calculating Y offset is rather simple—it’s just the length of the curve sequence so far.
 
-Calculating X offset is trickier, and the code is similar in the shader, so I will explain both at the same time.
+Calculating the X offset is trickier, and the process is similar in the shader. Here's the code for both:
 
 <!--
 TODO: Diagram of UV offset calculation
@@ -356,13 +356,15 @@ float calc_uvx(Branch branch, float clampedT, vec3 curPos) {
 }
 ```
 
-In the shader, it is calculated on the basis defined by the curve's plane's normal and the normal of the curve on the plane. The plane's normal is calculated simply as `cross(B-A, C-A)`, the normal of the curve on the plane is calculated as `cross(planeNormal, curveDirection)`, where `curveDirection` is the derivative of the curve at $t$. Then, we get the coordinates on the basis with dot products and then calculate the angle using $atan$ function, lastly we add the previous X offset to the angle. This is the same for calculating offset from the previous branch, but the previous branch's plane normal is used instead of $curPos-bezierPos$ that is used in the shader. Note that using `atan2` or `acos` will result in discontinuities, since they return in range $[-\pi/2, \pi/2]$ or $[0, \pi]$ respectively, so `atan`, which returns in range $[-\pi, \pi]$, is used. This also gets rid of the the hack in [Inigo Quilez's shader](https://www.shadertoy.com/view/ldj3Wh), which uses `acos` for curve-to-curve and multiplies the offset by $-1$ for some curve indices.
+In the shader, it is calculated on the basis defined by the curve's plane normal and the normal of the curve on the plane. The plane's normal is calculated simply as `cross(B-A, C-A)`, the normal of the curve on the plane is calculated as `cross(planeNormal, curveDirection)`, where `curveDirection` is the derivative of the curve at $t$. Then, we get the coordinates on the basis with dot products and then calculate the angle using $atan$ function, lastly we add the previous X offset to the angle. This is the same for calculating offset from the previous branch, but the previous branch's plane normal is used instead of $curPos-bezierPos$ that is used in the shader. Note that using `atan2` or `acos` will result in discontinuities, since they return in range $[-\pi/2, \pi/2]$ or $[0, \pi]$ respectively, so `atan`, which returns in range $[-\pi, \pi]$, is used. This also gets rid of the the hack in [Inigo Quilez's shader](https://www.shadertoy.com/view/ldj3Wh), which uses `acos` for curve-to-curve and multiplies the offset by $-1$ for some curve indices.
 
 ## Matching Depth
 
-The resulting position of ray marching is in world space, so we need to convert the depth to screen space and perspective divide. 
+Since ray marching calculates the intersection point in world space, we need to convert the depth to screen space and perform perspective division.
 
-Firstly, we need some properties of the camera, the ray direction and hit depth from ray marching. I calculate the ray direction as the normalized vector from the camera position to a point on the transformed bounding box, which was rasterized.
+Here's how the process works:
+
+1. We need some properties of the camera, the ray direction and hit depth from ray marching. I calculate the ray direction as the normalized vector from the camera position to a point on the transformed bounding box, which was rasterized.
 
 ```glsl
 float hitDepth;
@@ -372,20 +374,20 @@ float farPlane;
 float nearPlane;
 ```
 
-Convert the hit depth to eye space:
+2. Convert the hit depth to eye space:
 
 ```glsl
 float eyeHitZ = -hitDepth * dot(cameraDir, rayDir);
 ```
 
-Convert the eye space depth to clip space:
+3. Convert the eye space depth to clip space:
 
 ```glsl
 float clipZ = ((farPlane + nearPlane) / (farPlane - nearPlane)) * eyeHitZ + [2.0 * farPlane * nearPlane / (farPlane - nearPlane)];
 float clipW = -eyeHitZ;
 ```
 
-Perspective division, which will convert the clip space depth to normalized device coordinates (NDC):
+4. Perspective division, which will convert the clip space depth to normalized device coordinates (NDC):
 
 ```glsl
 float ndcDepth = clipZ / clipW;
@@ -393,7 +395,7 @@ float ndcDepth = clipZ / clipW;
 float ndcDepth = ((farPlane + nearPlane) + (2.0 * farPlane * nearPlane) / eyeHitZ) / (farPlane - nearPlane);
 ```
 
-To write it into the depth buffe, we will need to convert it to range $[0, 1]$. OpenGL exposes 3 variables for depth range: `gl_DepthRange.near`, `gl_DepthRange.far`, and `gl_DepthRange.diff`, which are respectively $0.0$, $1.0$ and $1.0$ unless specified otherwise with `glDepthRange(float nearVal, float farVal)`. Finally, we can calculate the value that will be written in the depth buffer as:
+5. To write it into the depth buffer, we will need to convert it to range $[0, 1]$. OpenGL exposes 3 variables for depth range: `gl_DepthRange.near`, `gl_DepthRange.far`, and `gl_DepthRange.diff`, which are respectively $0.0$, $1.0$ and $1.0$ unless specified otherwise with `glDepthRange(float nearVal, float farVal)`. Finally, we can calculate the value that will be written in the depth buffer as:
 
 ```glsl
 float depthBufferVal = ((gl_DepthRange.diff * ndcDepth) + gl_DepthRange.near + gl_DepthRange.far) / 2.0;
