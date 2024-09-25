@@ -6,7 +6,7 @@ weight: 1
 showtoc: true
 tags: ["Tree Rendering", "Ray Marching", "Curves", "Graphics", "OpenGL", "C++", "GLSL"]
 cover:
-    image: "/images/procedural-tree-generation/forest.gif"
+    image: "/images/tree-rendering/tree_growing.gif"
 description: "Rendering trees in real-time using ray marching"
 summary: "Rendering trees in real-time using ray marching"
 ---
@@ -25,7 +25,7 @@ Typically, trees in 3D environments are rendered as mesh models made up of trian
 
 - **Dynamic Shape Manipulation**: Since the tree's shape is represented mathematically as curves, you can dynamically alter it within the shader without needing to regenerate a mesh.
 - **Simpler Mathematical Representation**: Instead of dealing with complex mesh generation and management, Bézier curves provide a clean, simple representation.
-- **Easier to Understand**: Because everything is contained within the shader, and much of it is about mathematics, its easier to understand and faster to experiment with.
+- **Easier to Understand**: Because everything is contained within the shader, and much of it is about mathematics, it is easier to understand and faster to experiment with.
 
 However, the main disadvantage is that ray marching is generally slower than rasterization, especially for real-time rendering. Because of this, I had to optimize the ray marching code extensively.
 
@@ -38,10 +38,6 @@ The main reason for choosing ray marching and Bézier curves, though, is that Tr
 Although I’m presenting the final result here, I initially experimented with other methods such as line rendering, quad impostors, and ray marching truncated cones. Eventually, I settled on ray marching quadratic Bézier curves for the smoothest and most efficient results.
 
 # Quadratic Bézier Curve SDF
-
-<!--
-TODO: Diagram of quadratic Bézier curve
--->
 
 Bézier curves are parametric curves defined by two endpoints and one control point. TreeGen uses quadratic Bézier curves to render tree branches. While I’ll explain the mathematics behind its SDF, there are more detailed resources available for curves in general, such as [this video](https://www.youtube.com/watch?v=aVwxzDHniEw) by Freya Holmér.
 
@@ -113,7 +109,7 @@ $r(t) = r_{low} * (1-t) + r_{high}*t$
 
 Where $r_{low}$ is the radius at the start of the curve and $r_{high}$ is the radius at the end. Finally, the distance from the point to the curve’s surface is given by:
 
-This radius can be also eased based on $t$ to make the transition smoother, but I tried it and did not found it necessary.
+This radius can be also eased based on $t$ to make the transition smoother, but I tried it and didn't find it necessary.
  
 Finally, the distance from the point to the curve’s surface is given by:
 
@@ -202,12 +198,7 @@ Both of these functions are adapted from [Inigo Quilez's Quadratic Bezier distan
 
 TreeGen employs a hybrid rendering approach: the tree body is rendered using ray marching, while simpler objects like leaves are rendered using rasterization. This is because ray marching, although flexible, is slower compared to rasterization. Rasterization works better for simple quads/meshes, making it ideal for leaves. I will explain the ray marching setup and how I matched the depth for both rendering techniques.
 
-
 ## Ray Marching Setup
-
-<!---
-TODO: Diagram of ray marching setup
--->
 
 Ray marching is typically done on a full-screen quad, but in TreeGen, the ray marching shader operates per bounding box of each branch. This approach minimizes missed rays and optimizes performance. I used a simple axis-aligned bounding box (AABB) for the curves, although a tighter bounding object, like cylinders, might yield better performance. Bounding box calculations are done on the CPU using the methods from [Inigo Quilez's Bézier bounding box article](https://iquilezles.org/articles/bezierbbox/) and passed to the [vertex shader](#vertex-shader). Once a pixel is rasterized, the fragment shader begins ray marching from the world-space position of the pixel along the following direction:
 
@@ -218,6 +209,17 @@ vec3 rayDir = normalize(worldPos - cameraDir);
 Initially, I used fixed step count and minimum distance values, but I later optimized the process by adapting these parameters based on the distance between the camera and the bounding box. A curve that’s farther from the camera doesn’t need to be rendered with high detail, allowing for lower step counts and higher minimum distances, especially useful in shadow rendering.
 
 Since the ray marching is confined to a bounding box, performing ray-marched boolean operations between curves is challenging. Instead, I handle continuity issues of sequential curves by adjusting control points and blending normals at curve endpoints. This improves the visual smoothness of sequential curves, although it doesn’t address discontinuities at branch points. I will explain how normal blending works [later](#blending-normals).
+
+Below is a debug render demonstrating the ray marching setup & hit/miss rays with AABBs, it should also give some intuition on how the ray marching setup works:
+
+{{<rawhtml>}}
+<div style="display:flex; justify-content: space-evenly; gap: 2.5%; text-align: center; margin:auto; max-width: 70%">
+	<figure>
+	<img src="/images/tree-rendering/hit_miss.png" alt="An image showing hitting/missing rays with AABBs"> 
+	<figcaption>A render demonstrating the ray marching setup & hit/miss rays</figcaption>
+	</figure>
+</div>
+{{</rawhtml>}}
 
 ### C++ Code for Converting Branches to Curves
 
@@ -339,10 +341,6 @@ Calculating Y offset is rather simple—it’s just the length of the curve sequ
 
 Calculating the X offset is trickier, and the process is similar in the shader. Here's the code for both:
 
-<!--
-TODO: Diagram of UV offset calculation
--->
-
 ```glsl
 float calc_uvx(Branch branch, float clampedT, vec3 curPos) {
     Bezier curve = toBezier(branch);
@@ -356,7 +354,33 @@ float calc_uvx(Branch branch, float clampedT, vec3 curPos) {
 }
 ```
 
-In the shader, it is calculated on the basis defined by the curve's plane normal and the normal of the curve on the plane. The plane's normal is calculated simply as `cross(B-A, C-A)`, the normal of the curve on the plane is calculated as `cross(planeNormal, curveDirection)`, where `curveDirection` is the derivative of the curve at $t$. Then, we get the coordinates on the basis with dot products and then calculate the angle using $atan$ function, lastly we add the previous X offset to the angle. This is the same for calculating offset from the previous branch, but the previous branch's plane normal is used instead of $curPos-bezierPos$ that is used in the shader. Note that using `atan2` or `acos` will result in discontinuities, since they return in range $[-\pi/2, \pi/2]$ or $[0, \pi]$ respectively, so `atan`, which returns in range $[-\pi, \pi]$, is used. This also gets rid of the the hack in [Inigo Quilez's shader](https://www.shadertoy.com/view/ldj3Wh), which uses `acos` for curve-to-curve and multiplies the offset by $-1$ for some curve indices.
+In the shader, it is calculated based on the curve's plane normal and the normal of the curve on the plane. The plane’s normal is calculated simply as `cross(B-A, C-A)`, and the normal of the curve on the plane is calculated as `cross(planeNormal, curveDirection)`, where `curveDirection` is the derivative of the curve at $t$. Then, we get the coordinates on the basis with dot products and then calculate the angle using $atan$ function, lastly, we add the previous X offset to the angle. This is the same for calculating the offset from the previous branch, but the previous branch's plane normal is used instead of $curPos-bezierPos$ that is used in the shader. 
+
+Note that using `atan2` or `acos` will result in discontinuities, since they return in the range $[-\pi/2, \pi/2]$ or $[0, \pi]$ respectively, so `atan`, which returns in the range $[-\pi, \pi]$, is used. This also gets rid of the hack in [Inigo Quilez's shader](https://www.shadertoy.com/view/ldj3Wh), which uses `acos` for curve-to-curve and multiplies the offset by $-1$ for some curve indices.
+
+Here is a 3D visualization of the UV offset calculation I made on [Desmos](https://www.desmos.com/3d/bs8pujg4ov).
+
+
+{{<rawhtml>}}
+<div style="display:flex; justify-content: space-evenly; gap: 2.5%; text-align: center; margin:auto; max-width: 100%; max-height: 800px; height=800px">
+<iframe src="https://www.desmos.com/3d/bs8pujg4ov?embed" width="100%" height="800px" style="border: 3px solid #888888" frameborder=0></iframe>
+</div>
+{{</rawhtml>}}
+
+----
+
+Since ray marching is limited by the amount of steps, some bugs can occur, such as the ray terminating before hitting the curve with grazing angles & low step counts, here is an image demonstrating the problem:
+
+{{<rawhtml>}}
+<div style="display:flex; justify-content: space-evenly; gap: 2.5%; text-align: center; margin:auto; max-width: 70%">
+	<figure>
+	<img src="/images/tree-rendering/broken_raymarching.png" alt="Broken ray marching on grazing angles"> 
+	<figcaption>Broken ray marching on grazing angles</figcaption>
+	</figure>
+</div>
+{{</rawhtml>}}
+
+I did not solve this problem in the project, but I suppose it could be solved by increasing the max step count if the direction of the ray is almost parallel to the curve direction.
 
 ## Matching Depth
 
@@ -364,7 +388,7 @@ Since ray marching calculates the intersection point in world space, we need to 
 
 Here's how the process works:
 
-1. We need some properties of the camera, the ray direction and hit depth from ray marching. I calculate the ray direction as the normalized vector from the camera position to a point on the transformed bounding box, which was rasterized.
+1. We need some properties of the camera, the ray direction, and hit depth from ray marching. I calculated the ray direction as the normalized vector from the camera position to a point on the transformed bounding box, which was rasterized.
 
 ```glsl
 float hitDepth;
@@ -391,11 +415,11 @@ float clipW = -eyeHitZ;
 
 ```glsl
 float ndcDepth = clipZ / clipW;
-// This is the same, but in one line
+// This is the same but in one line
 float ndcDepth = ((farPlane + nearPlane) + (2.0 * farPlane * nearPlane) / eyeHitZ) / (farPlane - nearPlane);
 ```
 
-5. To write it into the depth buffer, we will need to convert it to range $[0, 1]$. OpenGL exposes 3 variables for depth range: `gl_DepthRange.near`, `gl_DepthRange.far`, and `gl_DepthRange.diff`, which are respectively $0.0$, $1.0$ and $1.0$ unless specified otherwise with `glDepthRange(float nearVal, float farVal)`. Finally, we can calculate the value that will be written in the depth buffer as:
+5. To write it into the depth buffer, we will need to convert it to the range $[0, 1]$. OpenGL exposes 3 variables for depth range: `gl_DepthRange.near`, `gl_DepthRange.far`, and `gl_DepthRange.diff`, which are respectively $0.0$, $1.0$ and $1.0$ unless specified otherwise with `glDepthRange(float nearVal, float farVal)`. Finally, we can calculate the value that will be written in the depth buffer as:
 
 ```glsl
 float depthBufferVal = ((gl_DepthRange.diff * ndcDepth) + gl_DepthRange.near + gl_DepthRange.far) / 2.0;
@@ -413,7 +437,7 @@ Writing the depth value to the depth buffer:
 gl_FragDepth = depthBufferVal;
 ```
 
-Since I use a bounding box and start ray marching from its boundary, it is guranteed that calculated depth value will be bigger than the current depth value of the rasterized pixel, which was calculated from the bounding box. Because of this, I can mark the `gl_FragDepth` as `(depth_greater)` to *theoratically* enable early depth testing, which discards the fragment if the depth value is greater than the current depth value in the depth buffer, which was calculated previously from the result of another fragment shader. I say theoratically since I tested it in 3 differen setups and it did not enable early depth testing, so I am not sure if it works or not. There is `layout(early_fragment_tests) in;` which forces early depth testing, but it disables depth writes in the fragment shader, which should not be the case since `gl_FragDepth` is marked as `(depth_greater)`, and `discard` does not seem to work with it, so I cannot use it either.
+Since I use a bounding box and start the ray marching from its boundary, it is guaranteed that the calculated depth value will be bigger than the current depth value of the rasterized pixel, which was calculated from the bounding box. Because of this, I can mark the `gl_FragDepth` as `(depth_greater)` to *theoretically* enable early depth testing, which discards the fragment if the depth value is greater than the current depth value in the depth buffer, which was calculated previously from the result of another fragment shader. I say theoretically since I tested it in 3 different setups and it did not enable early depth testing, so I am not sure if it works or not. There is `layout(early_fragment_tests) in;` which forces early depth testing, but it disables depth writes in the fragment shader, which should not be the case since `gl_FragDepth` is marked as `(depth_greater)`, and `discard` does not seem to work with it, so I cannot use it either.
 
 # Tree Shader
 
@@ -438,7 +462,14 @@ struct BranchData {
 };
 ```
 
-`model` is the model matrix of the branch, `start`, `mid`, and `end` are the control points of the Bézier curve, `color` is the color of the branch that is used for debugging, `lowRadius` is the start radius, `highRadius` is the end radius, note that `lowRadius` is bigger than `highRadius`. `startLength` is the length of the curve sequence so far, `branchLength` is the length of the current curve, `uvOffset` is the X offset of the branch, and `order` is the order of the branch in the tree, which is used for coloring the older branches darker.
+- `model` is the model matrix of the branch
+- `start`, `mid`, and `end` are the control points of the Bézier curve
+- `color` is the color of the branch that is used for debugging
+- `lowRadius` is the start radius, `highRadius` is the end radius, note that `lowRadius` is bigger than `highRadius`
+- `startLength` is the length of the curve sequence so far
+- `branchLength` is the length of the current curve
+- `uvOffset` is the X offset of the branch
+- `order` is the order of the branch in the tree, which is used for coloring the older branches darker.
 
 Each curve/branch is a cube that is drawn using instancing, so `BranchData` is stored in an SSBO and accessed using the `gl_InstanceID` in the shaders.
 
@@ -478,12 +509,12 @@ struct AnimatedBranch {
 };
 ```
 
-This is similar to the static branch structure, but it has ranges for the radius and $t$. I will explain it further in the [animated shader](#animated-growth--shader) section.
+This structure is similar to the static branch data, but it has ranges for the radius and $t$. I will explain it further in the [animated shader](#animated-growth--shader) section.
 
 
 ## Vertex Shader
 
-This is a simple vertex shader that transforms vertices based on the model matrix on the AABB. Additionally, it inverts the the cube if camera is inside, this is completely optional, but I wanted to render trees from inside while face culling is enabled.
+This is a simple vertex shader that transforms vertices based on the model matrix on the AABB. Additionally, I inverted the bounding box if the camera is inside, so trees can be rendered from the inside while face culling is still enabled.
 
 ```glsl
 void main()
@@ -510,21 +541,30 @@ void main()
 
 ## Static Fragment Shader
 
-This is the main fragment shader that does the ray marching. I will explain it steps since the code is rather long and most of the steps are already explained. 
+The static fragment shader performs the ray marching. I’ll break down the steps since the shader code is long and most of the techniques are already explained.
 
 1. Get the ray direction from `fragPos - cameraPos` and normalize it.
-2. Calculate distance between starting point of the ray and the bounding box to select the minimum distance and step count.
-3. Find intersecting point & normal of the curve using `sdBezier` and a simple SDF ray marching loop.
-4. If the ray is missing the curve, then discard the fragment.
-5. Calculate the UV coordinates of the point on the curve using the previously explained methods.
-6. Blend the normals of the curves closer to the end points of the curve to smooth the transition between sequential curves. I will explain this part further
-7. Calculate the depth value, if the intersecting point's spline parameter $t$ is less than 0.0 or greater than 1.0, then it is on the sphere that are on the end points of the curve. Normally, this shouldn't be a problem, but since sequential curves are not perfectly matched, spheres at the end points poke out of the previous/next branch, so I fixed it by offsetting the depth value by a small amount if the point is on the sphere. Then convert the depth value & write it to the depth buffer.
-8. Get the albedo color & normal of the point using the UV coordinates & textures. Then calculate the end normal using bump mapping.
-9. Calculate the lighting using Blinn-Phong lighting model.
-10. Check if the point is shadowed or not using shadow mapping & PCF.
-11. Return the final color.
+2. Calculate the distance from the starting point to the bounding box, which helps determine the minimum distance and step count.
+3. Use the `sdBezier` function in a ray marching loop to find the intersection point and the curve normal.
+4. If the ray doesn’t hit the curve, discard the fragment.
+5. Calculate the UV coordinates for the hit point on the curve.
+6. Blend normals near the curve’s endpoints to smooth transitions between sequential curves (further explanation in [blending normals](#blending-normals)).
+7. Calculate the depth value, if the intersecting point's spline parameter $t$ is less than 0.0 or greater than 1.0, then it is on the spheres that are on the endpoints of the curve. Normally, this shouldn't be a problem, but since sequential curves are not perfectly matched, spheres at the endpoints poke out of the previous/next branch, so I fixed it by offsetting the depth value by a small amount if the point is on the sphere. Then convert the depth value & write it to the depth buffer.
+8. Get the albedo color & normal of the point using the UV coordinates & textures. Then calculate the final normal using bump mapping.
+9. Calculate the lighting using the Blinn-Phong lighting model.
+10. Perform shadow mapping and percentage-closer filtering (PCF) to check for shadows.
+11. Output the final color.
 
-The source code for this file is in the [GitHub repository](https://github.com/caner-milko/TreeGen/blob/main/TreeGeneration/Assets/Shaders/treeBezier_frag.glsl).
+{{<rawhtml>}}
+<div style="display:flex; justify-content: space-evenly; gap: 2.5%; text-align: center; margin:auto; max-width: 70%">
+	<figure>
+	<img src="/images/tree-rendering/closeup.png" alt="Close-up image of branches"> 
+	<figcaption>Close-up image of branches</figcaption>
+	</figure>
+</div>
+{{</rawhtml>}}
+
+The source code for this file can be found in the [GitHub repository](https://github.com/caner-milko/TreeGen/blob/main/TreeGeneration/Assets/Shaders/treeBezier_frag.glsl).
 
 ### Blending Normals
 
@@ -532,9 +572,9 @@ The source code for this file is in the [GitHub repository](https://github.com/c
 TODO: Diagram of normal based on cones
 -->
 
-Since the normals of the curves at connection points of sequential curves are not perfectly matched, a visible seam appears at the connection points. To fix this, I assumed that 2 curves are connected by a truncated cone, where bottom radius is the radius of the previous curve at $1-t_{normalBlend}$ and the top radius is the radius of the next curve at $t_{normalBlend}$. If a ray marched point is not in the range $[t_{normalBlend}, 1-t_{normalBlend}]$, then I blended it with the normal of the cone at the start/end. This is done by calculating the normal of the cone at that point and mixing it with the normal of the curve at that point based on $t$ value. 
+Normals at the connection points of sequential curves don’t match perfectly, which causes a visible seam. To fix this, I assume that two curves are connected by a truncated cone. The cone’s bottom radius is the radius of the previous curve at $1-t_{normalBlend}$, and the top radius is the radius of the next curve at $t_{normalBlend}$. If a ray-marched point is outside the range $[t_{normalBlend}, 1-t_{normalBlend}]$, I blend it with the cone's normal at the start/end, making the transition smoother.
 
-I will not go into detail on how normal of the cone is calculated, but [here](https://www.desmos.com/3d/kyshuywpft) is a 3D visualization in Desmos.
+I won’t go into detail on how the cone's normal is calculated, but you can explore a 3D visualization I made on [Desmos](https://www.desmos.com/3d/kyshuywpft).
 
 {{<rawhtml>}}
 <div style="display:flex; justify-content: space-evenly; gap: 2.5%; text-align: center; margin:auto; max-width: 100%; max-height: 800px; height=800px">
@@ -560,18 +600,27 @@ vec3 coneNormal(in vec3 pos, in float t, in vec3 A, in vec3 B, in float Arad, in
 
 ## Animated Growth & Shader
 
-<!--
-TODO: A tree growing gif
--->
+{{<rawhtml>}}
+<div style="display:flex; justify-content: space-evenly; gap: 2.5%; text-align: center; margin:auto; max-width: 70%">
+	<figure>
+	<img src="/images/tree-rendering/tree_growing.gif" alt="A trees with animated growth"> 
+	<figcaption>Two trees with animated growth</figcaption>
+	</figure>
+</div>
+{{</rawhtml>}}
 
-Animating is rather simple with the setup I have, I simply interpolate the control points & radii of the curve based on the animation parameter $t$. The first step of the shader is calculating the interpolated points & radii, then the remaining steps are the same as the static shader.
+Animating is rather simple with the ray marching setup I have, I simply interpolate the control points & radii of the curve based on the animation parameter $t$. The first step of the shader is calculating the interpolated points & radii, then the remaining steps are the same as the static shader.
 
 # Conclusion
 
-In the end, I like the result of the ray marching, and especially being able to animate growth with it. I think the result is quite good, though a better lighting model would help. I learned a lot about ray marching, curves and benchmarking(NSight in particular) in this project. If I had more time, I would experiment with differen lighting models, more optimizations and go into more detail in dynamic manipulation of the tree shape. Lastly, here are the benchmarks of the ray marching shader with a RTX 2060:
+In conclusion, I’m satisfied with the ray marching results, especially the ability to animate growth dynamically. The final output is good, although I think a more advanced lighting model would enhance it further. Through this project, I learned a great deal about OpenGL, ray marching, working with curves, and performance benchmarking (particularly with NSight).
+
+If I had more time, I’d explore additional optimizations, different lighting models, and more dynamic manipulation of tree shapes. Below are the performance benchmarks for the ray marching shader using an RTX 2060:
 
 | Figure               | Branches  | Total   | Shaded Branches | Shaded Leaves | Branch Shadows | Leaf Shadows |
 |----------------------|-----------|---------|-----------------|---------------|------------------|----------------|
 | Only Branches | 2,410     | 0.35ms  | 0.35ms          | -             | -                | -              |
 | Single Tree   | 2,410     | 0.50ms  | 0.29ms          | 0.11ms        | 0.06ms           | 0.03ms         |
 | Forest         | 237,551   | 12.0ms  | 4.09ms          | 3.90ms        | 2.98ms           | 1.02ms         |
+
+Thank you for reading! If you have any questions or feedback, feel free to comment.
