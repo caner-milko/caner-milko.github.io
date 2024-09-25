@@ -1,7 +1,6 @@
 ---
 title: "Procedural Tree Generation - TreeGen Part 1"
 draft: false
-comments: true
 date: 2024-09-01
 weight: 1
 showtoc: true

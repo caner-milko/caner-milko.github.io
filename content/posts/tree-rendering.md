@@ -1,7 +1,7 @@
 ---
 title: "Tree Rendering - TreeGen Part 2"
 draft: false
-date: 2024-09-06
+date: 2024-09-26
 weight: 1
 showtoc: true
 tags: ["Tree Rendering", "Ray Marching", "Curves", "Graphics", "OpenGL", "C++", "GLSL"]
